@@ -32,36 +32,49 @@
     clearTimeout(showToast.t); showToast.t = setTimeout(() => els.toast.classList.remove('show'), 4200);
   }
 
-  function gvizUrl(gid) {
-    return `https://docs.google.com/spreadsheets/d/${cfg.spreadsheetId}/gviz/tq?tqx=out:json&gid=${gid}&t=${Date.now()}`;
+  function publishedCsvUrl(gid) {
+    if (!cfg.publishedId) throw new Error('publishedId não configurado');
+    return `https://docs.google.com/spreadsheets/d/e/${cfg.publishedId}/pub?gid=${gid}&single=true&output=csv&_=${Date.now()}`;
   }
 
-  async function fetchGviz(gid) {
+  function parseCsv(text) {
+    const rows = [];
+    let row = [], field = '', quoted = false;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      if (quoted) {
+        if (ch === '"' && text[i + 1] === '"') { field += '"'; i++; }
+        else if (ch === '"') quoted = false;
+        else field += ch;
+      } else {
+        if (ch === '"') quoted = true;
+        else if (ch === ',') { row.push(field); field = ''; }
+        else if (ch === '\n') { row.push(field.replace(/\r$/, '')); rows.push(row); row = []; field = ''; }
+        else field += ch;
+      }
+    }
+    if (field.length || row.length) { row.push(field.replace(/\r$/, '')); rows.push(row); }
+    return rows.filter(r => r.some(v => String(v).trim() !== ''));
+  }
+
+  async function fetchPublishedCsv(gid) {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 7000);
-    let response;
+    const timer = setTimeout(() => controller.abort(), 10000);
     try {
-      response = await fetch(gvizUrl(gid), { cache: 'no-store', signal: controller.signal });
+      const response = await fetch(publishedCsvUrl(gid), { cache: 'no-store', signal: controller.signal });
+      if (!response.ok) throw new Error(`Google Sheets respondeu ${response.status}`);
+      return parseCsv(await response.text());
     } finally {
       clearTimeout(timer);
     }
-    if (!response.ok) throw new Error(`Google Sheets respondeu ${response.status}`);
-    const text = await response.text();
-    const start = text.indexOf('{'); const end = text.lastIndexOf('}');
-    if (start < 0 || end < 0) throw new Error('Resposta do Google Sheets inválida');
-    const payload = JSON.parse(text.slice(start, end + 1));
-    if (payload.status === 'error') throw new Error(payload.errors?.[0]?.detailed_message || 'Erro na consulta da planilha');
-    return payload.table;
   }
 
-  function rowsToObjects(table) {
-    const headers = table.cols.map((c, i) => String(c.label || c.id || `col${i}`).trim());
-    return table.rows.map(row => {
+  function csvRowsToObjects(rows) {
+    if (!rows.length) return [];
+    const headers = rows[0].map((h, i) => String(h || `col${i}`).trim());
+    return rows.slice(1).map(values => {
       const obj = {};
-      headers.forEach((h, i) => {
-        const cell = row.c?.[i];
-        obj[h] = cell ? (cell.f ?? cell.v ?? '') : '';
-      });
+      headers.forEach((h, i) => obj[h] = values[i] ?? '');
       return obj;
     });
   }
@@ -127,14 +140,14 @@
     const forceDemo = new URLSearchParams(location.search).get('demo') === '1';
     try {
       if (forceDemo) throw new Error('Modo demonstração solicitado');
-      const [projectTable, updateTable] = await Promise.all([fetchGviz(cfg.projectsGid), fetchGviz(cfg.updatesGid)]);
-      const rawProjects = rowsToObjects(projectTable);
-      const rawUpdates = rowsToObjects(updateTable);
+      const [projectRows, updateRows] = await Promise.all([fetchPublishedCsv(cfg.projectsGid), fetchPublishedCsv(cfg.updatesGid)]);
+      const rawProjects = csvRowsToObjects(projectRows);
+      const rawUpdates = csvRowsToObjects(updateRows);
 
       state.projects = rawProjects.map(r => ({
         id: String(normalizeHeader(r,['projeto_id','Projeto ID']) || '').trim(),
         name: String(normalizeHeader(r,['projeto','Projeto']) || '').trim(),
-        active: normalize(normalizeHeader(r,['ativo','Ativo'])) !== 'false',
+        active: !['false','falso','0','nao','não'].includes(normalize(normalizeHeader(r,['ativo','Ativo']))),
         order: Number(normalizeHeader(r,['ordem','Ordem'])) || 999
       })).filter(p => p.id && p.name).sort((a,b)=>a.order-b.order || a.name.localeCompare(b.name));
 
@@ -153,11 +166,11 @@
 
       if (!state.projects.length) throw new Error('Nenhum projeto encontrado na aba PROJETOS');
       state.demo = false;
-      els.status.textContent = 'Fonte: Google Sheets · atualização automática';
+      els.status.textContent = 'Fonte: Google Sheets publicado · atualização automática';
     } catch (err) {
       state.projects = demoProjects; state.updates = demoUpdates; state.demo = true;
-      els.status.textContent = 'Modo demonstração · Google Sheets ainda não está acessível pelo front-end';
-      showToast('O dashboard abriu em modo demonstração. Para usar os dados reais, a planilha precisa estar publicada/visível para leitura pelo navegador.');
+      els.status.textContent = 'Modo demonstração · não foi possível ler a publicação do Google Sheets';
+      showToast('Não foi possível ler a publicação do Google Sheets. Confira se “Publicar na Web” continua ativo e tente Atualizar dados.');
       console.warn(err);
     }
     hydrateSelections(); render();
