@@ -1,6 +1,6 @@
 (() => {
   const cfg = window.ATLANTYX_CONFIG;
-  const state = { projects: [], updates: [], selectedProjectId: null, selectedWeekKey: null, demo: false };
+  const state = { projects: [], updates: [], teams: [], selectedProjectId: null, selectedWeekKey: null, demo: false };
 
   const el = id => document.getElementById(id);
   const els = {
@@ -13,8 +13,12 @@
   };
 
   const demoProjects = [
-    { id: 'PRJ001', name: 'Projeto Exemplo A', active: true, order: 1, signal: 'Sem atraso', team: 'Ana Souza — PM; Bruno Lima — Arquiteto' },
-    { id: 'PRJ002', name: 'Projeto Exemplo B', active: true, order: 2, signal: 'Atraso sem impacto no término', team: '' }
+    { id: 'PRJ001', name: 'Projeto Exemplo A', active: true, order: 1, signal: 'Sem atraso' },
+    { id: 'PRJ002', name: 'Projeto Exemplo B', active: true, order: 2, signal: 'Atraso sem impacto no término' }
+  ];
+  const demoTeams = [
+    { id:'1', name:'Ana Souza', role:'PM', project:'Projeto Exemplo A', projectId:'PRJ001' },
+    { id:'2', name:'Bruno Lima', role:'Arquiteto', project:'Projeto Exemplo A', projectId:'PRJ001' }
   ];
   const demoUpdates = [
     { project:'Projeto Exemplo A', projectId:'PRJ001', date:'2026-09-24', pillar:'O que foi feito', description:'Integração concluída e fluxo principal homologado.', status:'Concluído', start:'', end:'', percent:'', note:'' },
@@ -142,17 +146,21 @@
     const forceDemo = new URLSearchParams(location.search).get('demo') === '1';
     try {
       if (forceDemo) throw new Error('Modo demonstração solicitado');
-      const [projectRows, updateRows] = await Promise.all([fetchPublishedCsv(cfg.projectsGid), fetchPublishedCsv(cfg.updatesGid)]);
+      const [projectRows, updateRows, teamRows] = await Promise.all([
+        fetchPublishedCsv(cfg.projectsGid),
+        fetchPublishedCsv(cfg.updatesGid),
+        fetchPublishedCsv(cfg.teamGid)
+      ]);
       const rawProjects = csvRowsToObjects(projectRows);
       const rawUpdates = csvRowsToObjects(updateRows);
+      const rawTeams = csvRowsToObjects(teamRows);
 
       state.projects = rawProjects.map(r => ({
         id: String(normalizeHeader(r,['projeto_id','Projeto ID']) || '').trim(),
         name: String(normalizeHeader(r,['projeto','Projeto']) || '').trim(),
         active: !['false','falso','0','nao','não'].includes(normalize(normalizeHeader(r,['ativo','Ativo']))),
         order: Number(normalizeHeader(r,['ordem','Ordem'])) || 999,
-        signal: String(normalizeHeader(r,['sinalizador','Sinalizador','status_projeto','Status do projeto']) || '').trim(),
-        team: String(normalizeHeader(r,['equipe_atlantyx','Equipe ATLANTYX','equipe','Equipe']) || '').trim()
+        signal: String(normalizeHeader(r,['sinalizador','Sinalizador','status_projeto','Status do projeto']) || '').trim()
       })).filter(p => p.id && p.name).sort((a,b)=>a.order-b.order || a.name.localeCompare(b.name));
 
       state.updates = rawUpdates.map(r => ({
@@ -168,11 +176,19 @@
         note: String(normalizeHeader(r,['Observação / Evidência','evidencia_observacao']) || '').trim()
       })).filter(x => x.projectId && x.date && x.pillar && x.description);
 
+      state.teams = rawTeams.map(r => ({
+        id: String(normalizeHeader(r,['Id_recurso','id_recurso','ID recurso']) || '').trim(),
+        name: String(normalizeHeader(r,['recurso','Recurso','nome','Nome']) || '').trim(),
+        role: String(normalizeHeader(r,['funcao','função','Funcao','Função','papel','Papel']) || '').trim(),
+        project: String(normalizeHeader(r,['projeto','Projeto']) || '').trim(),
+        projectId: String(normalizeHeader(r,['projeto_id','Projeto ID','projeto id']) || '').trim()
+      })).filter(x => x.name && (x.projectId || x.project));
+
       if (!state.projects.length) throw new Error('Nenhum projeto encontrado na aba PROJETOS');
       state.demo = false;
       els.status.textContent = 'Fonte: Google Sheets publicado · atualização automática';
     } catch (err) {
-      state.projects = demoProjects; state.updates = demoUpdates; state.demo = true;
+      state.projects = demoProjects; state.updates = demoUpdates; state.teams = demoTeams; state.demo = true;
       els.status.textContent = 'Modo demonstração · não foi possível ler a publicação do Google Sheets';
       showToast('Não foi possível ler a publicação do Google Sheets. Confira se “Publicar na Web” continua ativo e tente Atualizar dados.');
       console.warn(err);
@@ -281,25 +297,27 @@
     els.teamButton.title = project ? `Ver equipe ATLANTYX de ${project.name}` : 'Ver equipe ATLANTYX';
   }
 
-  function teamEntries(raw) {
-    return String(raw || '').split(/\r?\n|\s*;\s*/).map(x=>x.trim()).filter(Boolean);
-  }
-
   function initials(name) {
     const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
     if (!parts.length) return 'AT';
     return (parts[0][0] + (parts.length > 1 ? parts.at(-1)[0] : '')).toUpperCase();
   }
 
-  function splitMember(entry) {
-    const m = String(entry).match(/^(.+?)\s+(?:—|–|\|)\s+(.+)$/);
-    return m ? { name:m[1].trim(), role:m[2].trim() } : { name:String(entry).trim(), role:'' };
+  function teamForProject(project) {
+    if (!project) return [];
+    return state.teams
+      .filter(member => member.projectId === project.id || normalize(member.project) === normalize(project.name))
+      .sort((a,b) => {
+        const ai = Number(a.id), bi = Number(b.id);
+        if (Number.isFinite(ai) && Number.isFinite(bi) && ai !== bi) return ai - bi;
+        return a.name.localeCompare(b.name, 'pt-BR');
+      });
   }
 
   function openTeamModal() {
     const project = currentProject();
     els.teamProjectName.textContent = project?.name || 'Projeto não selecionado';
-    const members = teamEntries(project?.team || '').map(splitMember);
+    const members = teamForProject(project);
     els.teamList.innerHTML = members.length ? members.map(m => `
       <div class="team-member">
         <div class="team-avatar">${escapeHtml(initials(m.name))}</div>
@@ -307,7 +325,7 @@
           <div class="team-member-name">${escapeHtml(m.name)}</div>
           ${m.role ? `<div class="team-member-role">${escapeHtml(m.role)}</div>` : ''}
         </div>
-      </div>`).join('') : `<div class="team-empty">Nenhum integrante cadastrado para este projeto.<br>Preencha <strong>equipe_atlantyx</strong> na aba PROJETOS, separando os integrantes por ponto e vírgula.</div>`;
+      </div>`).join('') : `<div class="team-empty">Nenhum integrante cadastrado para este projeto.<br>Adicione pessoas na aba <strong>Equipe_projeto</strong> usando o mesmo <strong>projeto_id</strong>.</div>`;
     els.teamModal.hidden = false;
     document.body.classList.add('modal-open');
     els.teamModalClose.focus();

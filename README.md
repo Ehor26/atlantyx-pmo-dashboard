@@ -11,16 +11,14 @@ Dashboard estático para GitHub Pages alimentado pela publicação Web do Google
 - `ativo`
 - `ordem`
 - `sinalizador`
-- `equipe_atlantyx`
 
 Valores do `sinalizador`:
 - `Sem atraso` → 🟢
 - `Atraso sem impacto no término` → 🟡
 - `Atraso com impacto no término` → 🔴
 
-Em `equipe_atlantyx`, coloque os integrantes separados por ponto e vírgula. Opcionalmente inclua função usando travessão:
+A equipe agora é lida da aba `Equipe_projeto`, uma pessoa por linha, usando as colunas `Id_recurso`, `recurso`, `funcao`, `projeto` e `projeto_id`.
 
-`Ana Souza — PM; Bruno Lima — Arquiteto; Carla Dias — Engenheira de Dados`
 
 ### ATUALIZACOES
 
@@ -35,9 +33,8 @@ O dashboard mantém compatibilidade com registros históricos chamados `Entregas
 ## Atualização no GitHub
 
 Substitua na raiz do repositório:
-- `index.html`
-- `styles.css`
 - `app.js`
+- `config.js`
 - `README.md` (opcional)
 
-`config.js` e a pasta `assets` podem permanecer iguais.
+`index.html`, `styles.css` e a pasta `assets` podem permanecer iguais se você já aplicou a v3.

@@ -5,6 +5,7 @@ window.ATLANTYX_CONFIG = {
   spreadsheetId: "1fKYBPZjO_mLDDqD2h2yG9naXAmQc7oA1IeVDdDawZGw",
   projectsGid: "1281331603",
   updatesGid: "1629390087",
+  teamGid: "1533494228",
   refreshMinutes: 5,
   locale: "pt-BR"
 };
