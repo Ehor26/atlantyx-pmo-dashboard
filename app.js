@@ -5,22 +5,24 @@
   const el = id => document.getElementById(id);
   const els = {
     project: el('projectSelect'), week: el('weekSelect'), updated: el('updatedDate'), weekHeadline: el('weekHeadline'),
-    status: el('dataStatus'), toast: el('toast'), done: el('doneList'), deliveries: el('deliveryList'),
+    status: el('dataStatus'), toast: el('toast'), done: el('doneList'), planned: el('plannedList'),
     schedule: el('scheduleList'), attention: el('attentionList'),
-    countDone: el('countDone'), countDeliveries: el('countDeliveries'), countSchedule: el('countSchedule'), countAttention: el('countAttention')
+    countDone: el('countDone'), countPlanned: el('countPlanned'), countSchedule: el('countSchedule'), countAttention: el('countAttention'),
+    signal: el('projectSignal'), signalDot: el('projectSignalDot'), signalText: el('projectSignalText'),
+    teamButton: el('teamButton'), teamModal: el('teamModal'), teamModalClose: el('teamModalClose'), teamProjectName: el('teamProjectName'), teamList: el('teamList')
   };
 
   const demoProjects = [
-    { id: 'PRJ001', name: 'Projeto Exemplo A', active: true, order: 1 },
-    { id: 'PRJ002', name: 'Projeto Exemplo B', active: true, order: 2 }
+    { id: 'PRJ001', name: 'Projeto Exemplo A', active: true, order: 1, signal: 'Sem atraso', team: 'Ana Souza — PM; Bruno Lima — Arquiteto' },
+    { id: 'PRJ002', name: 'Projeto Exemplo B', active: true, order: 2, signal: 'Atraso sem impacto no término', team: '' }
   ];
   const demoUpdates = [
     { project:'Projeto Exemplo A', projectId:'PRJ001', date:'2026-09-24', pillar:'O que foi feito', description:'Integração concluída e fluxo principal homologado.', status:'Concluído', start:'', end:'', percent:'', note:'' },
     { project:'Projeto Exemplo A', projectId:'PRJ001', date:'2026-09-24', pillar:'O que foi feito', description:'Cenários críticos de teste executados sem bloqueios.', status:'Concluído', start:'', end:'', percent:'', note:'' },
-    { project:'Projeto Exemplo A', projectId:'PRJ001', date:'2026-09-24', pillar:'Entregas', description:'Dashboard executivo disponibilizado para aceite.', status:'Concluído', start:'', end:'2026-09-23', percent:'', note:'Aceite pendente.' },
-    { project:'Projeto Exemplo A', projectId:'PRJ001', date:'2026-09-24', pillar:'Entregas', description:'Documentação operacional revisada.', status:'Em curso', start:'', end:'2026-09-25', percent:'', note:'' },
-    { project:'Projeto Exemplo A', projectId:'PRJ001', date:'2026-09-24', pillar:'Macros do cronograma', description:'Desenvolvimento', status:'Em curso', start:'2026-09-01', end:'2026-09-30', percent:'75%', note:'' },
-    { project:'Projeto Exemplo A', projectId:'PRJ001', date:'2026-09-24', pillar:'Macros do cronograma', description:'Homologação', status:'A iniciar', start:'2026-10-01', end:'2026-10-09', percent:'10%', note:'' },
+    { project:'Projeto Exemplo A', projectId:'PRJ001', date:'2026-09-24', pillar:'O que será feito', description:'Dashboard executivo disponibilizado para aceite.', status:'Concluído', start:'', end:'2026-09-23', percent:'', note:'Aceite pendente.' },
+    { project:'Projeto Exemplo A', projectId:'PRJ001', date:'2026-09-24', pillar:'O que será feito', description:'Documentação operacional revisada.', status:'Em curso', start:'', end:'2026-09-25', percent:'', note:'' },
+    { project:'Projeto Exemplo A', projectId:'PRJ001', date:'2026-09-24', pillar:'Marcos do cronograma', description:'Desenvolvimento', status:'Em curso', start:'2026-09-01', end:'2026-09-30', percent:'75%', note:'' },
+    { project:'Projeto Exemplo A', projectId:'PRJ001', date:'2026-09-24', pillar:'Marcos do cronograma', description:'Homologação', status:'A iniciar', start:'2026-10-01', end:'2026-10-09', percent:'10%', note:'' },
     { project:'Projeto Exemplo A', projectId:'PRJ001', date:'2026-09-24', pillar:'Pontos de atenção', description:'Liberação do ambiente depende de terceiro e pode impactar a homologação.', status:'Dependência', start:'', end:'2026-09-26', percent:'', note:'Escalonar se não houver liberação.' },
     { project:'Projeto Exemplo A', projectId:'PRJ001', date:'2026-09-17', pillar:'O que foi feito', description:'Arquitetura técnica aprovada.', status:'Concluído', start:'', end:'', percent:'', note:'' },
     { project:'Projeto Exemplo B', projectId:'PRJ002', date:'2026-09-24', pillar:'O que foi feito', description:'Backlog priorizado para a próxima etapa.', status:'Concluído', start:'', end:'', percent:'', note:'' },
@@ -148,7 +150,9 @@
         id: String(normalizeHeader(r,['projeto_id','Projeto ID']) || '').trim(),
         name: String(normalizeHeader(r,['projeto','Projeto']) || '').trim(),
         active: !['false','falso','0','nao','não'].includes(normalize(normalizeHeader(r,['ativo','Ativo']))),
-        order: Number(normalizeHeader(r,['ordem','Ordem'])) || 999
+        order: Number(normalizeHeader(r,['ordem','Ordem'])) || 999,
+        signal: String(normalizeHeader(r,['sinalizador','Sinalizador','status_projeto','Status do projeto']) || '').trim(),
+        team: String(normalizeHeader(r,['equipe_atlantyx','Equipe ATLANTYX','equipe','Equipe']) || '').trim()
       })).filter(p => p.id && p.name).sort((a,b)=>a.order-b.order || a.name.localeCompare(b.name));
 
       state.updates = rawUpdates.map(r => ({
@@ -211,10 +215,11 @@
     els.weekHeadline.textContent = week?.label || 'Sem atualização para este projeto';
 
     const done = rows.filter(r=>normalize(r.pillar)==='o que foi feito');
-    const deliveries = rows.filter(r=>normalize(r.pillar)==='entregas');
-    const schedule = rows.filter(r=>normalize(r.pillar)==='macros do cronograma');
+    const planned = rows.filter(r=>['o que sera feito','entregas'].includes(normalize(r.pillar)));
+    const schedule = rows.filter(r=>['marcos do cronograma','macros do cronograma'].includes(normalize(r.pillar)));
     const attention = rows.filter(r=>normalize(r.pillar)==='pontos de atencao');
-    els.countDone.textContent=done.length; els.countDeliveries.textContent=deliveries.length; els.countSchedule.textContent=schedule.length; els.countAttention.textContent=attention.length;
+    els.countDone.textContent=done.length; els.countPlanned.textContent=planned.length; els.countSchedule.textContent=schedule.length; els.countAttention.textContent=attention.length;
+    renderProjectMeta();
 
     els.done.innerHTML = done.length ? done.map((r,i)=>`
       <div class="done-item">
@@ -223,12 +228,12 @@
         ${r.status?`<span class="status-badge ${slugStatus(r.status)}">${escapeHtml(r.status)}</span>`:''}
       </div>`).join('') : empty('Nenhuma execução registrada nesta semana.');
 
-    els.deliveries.innerHTML = deliveries.length ? deliveries.map(r=>`
+    els.planned.innerHTML = planned.length ? planned.map(r=>`
       <div class="delivery-row">
         <div><div class="item-title">${escapeHtml(r.description)}</div>${r.note?`<div class="item-description">${escapeHtml(r.note)}</div>`:''}</div>
         ${r.status?`<span class="status-badge ${slugStatus(r.status)}">${escapeHtml(r.status)}</span>`:'<span></span>'}
         <div class="delivery-date">${r.end?shortDate(r.end):'—'}</div>
-      </div>`).join('') : empty('Nenhuma entrega registrada nesta semana.');
+      </div>`).join('') : empty('Nenhum próximo passo registrado nesta semana.');
 
     els.schedule.innerHTML = schedule.length ? schedule.map(r=>{
       const pct=parsePercent(r.percent); return `
@@ -237,7 +242,7 @@
         <div class="schedule-dates">${r.start?shortDate(r.start):'—'} → ${r.end?shortDate(r.end):'—'} ${r.status?` · ${escapeHtml(r.status)}`:''}</div>
         <div class="progress-track"><div class="progress-fill" style="width:${pct ?? 0}%"></div></div>
         ${r.note?`<div class="item-description">${escapeHtml(r.note)}</div>`:''}
-      </div>`}).join('') : empty('Nenhuma macro de cronograma registrada nesta semana.');
+      </div>`}).join('') : empty('Nenhum marco de cronograma registrado nesta semana.');
 
     els.attention.innerHTML = attention.length ? attention.map(r=>`
       <div class="attention-item">
@@ -247,7 +252,71 @@
       </div>`).join('') : empty('Nenhum ponto de atenção registrado nesta semana.');
 
     const total = rows.length;
-    document.body.classList.toggle('compact', total > 12 || Math.max(done.length,deliveries.length,schedule.length,attention.length) > 5);
+    document.body.classList.toggle('compact', total > 12 || Math.max(done.length,planned.length,schedule.length,attention.length) > 5);
+  }
+
+
+  function currentProject() {
+    return state.projects.find(p => p.id === state.selectedProjectId) || null;
+  }
+
+  function signalInfo(value) {
+    const n = normalize(value);
+    if (!n) return { emoji:'⚪', text:'Status não informado', cls:'project-signal-neutral' };
+    if (n.includes('sem atraso') && !n.includes('atraso sem')) return { emoji:'🟢', text:'Sem atraso', cls:'project-signal-green' };
+    if (n.includes('sem impacto') || n.includes('termino mantido') || n.includes('término mantido')) return { emoji:'🟡', text:'Atraso sem impacto no término', cls:'project-signal-yellow' };
+    if (n.includes('com impacto') || n.includes('compromet') || n.includes('termino alterado') || n.includes('término alterado')) return { emoji:'🔴', text:'Atraso com impacto no término', cls:'project-signal-red' };
+    if (n.startsWith('verde') || n.startsWith('green')) return { emoji:'🟢', text:value, cls:'project-signal-green' };
+    if (n.startsWith('amarelo') || n.startsWith('yellow')) return { emoji:'🟡', text:value, cls:'project-signal-yellow' };
+    if (n.startsWith('vermelho') || n.startsWith('red')) return { emoji:'🔴', text:value, cls:'project-signal-red' };
+    return { emoji:'⚪', text:value, cls:'project-signal-neutral' };
+  }
+
+  function renderProjectMeta() {
+    const project = currentProject();
+    const info = signalInfo(project?.signal || '');
+    els.signal.className = `project-signal ${info.cls}`;
+    els.signalDot.textContent = info.emoji;
+    els.signalText.textContent = info.text;
+    els.teamButton.title = project ? `Ver equipe ATLANTYX de ${project.name}` : 'Ver equipe ATLANTYX';
+  }
+
+  function teamEntries(raw) {
+    return String(raw || '').split(/\r?\n|\s*;\s*/).map(x=>x.trim()).filter(Boolean);
+  }
+
+  function initials(name) {
+    const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return 'AT';
+    return (parts[0][0] + (parts.length > 1 ? parts.at(-1)[0] : '')).toUpperCase();
+  }
+
+  function splitMember(entry) {
+    const m = String(entry).match(/^(.+?)\s+(?:—|–|\|)\s+(.+)$/);
+    return m ? { name:m[1].trim(), role:m[2].trim() } : { name:String(entry).trim(), role:'' };
+  }
+
+  function openTeamModal() {
+    const project = currentProject();
+    els.teamProjectName.textContent = project?.name || 'Projeto não selecionado';
+    const members = teamEntries(project?.team || '').map(splitMember);
+    els.teamList.innerHTML = members.length ? members.map(m => `
+      <div class="team-member">
+        <div class="team-avatar">${escapeHtml(initials(m.name))}</div>
+        <div>
+          <div class="team-member-name">${escapeHtml(m.name)}</div>
+          ${m.role ? `<div class="team-member-role">${escapeHtml(m.role)}</div>` : ''}
+        </div>
+      </div>`).join('') : `<div class="team-empty">Nenhum integrante cadastrado para este projeto.<br>Preencha <strong>equipe_atlantyx</strong> na aba PROJETOS, separando os integrantes por ponto e vírgula.</div>`;
+    els.teamModal.hidden = false;
+    document.body.classList.add('modal-open');
+    els.teamModalClose.focus();
+  }
+
+  function closeTeamModal() {
+    els.teamModal.hidden = true;
+    document.body.classList.remove('modal-open');
+    els.teamButton.focus();
   }
 
   function empty(text) { return `<div class="empty-state">${escapeHtml(text)}</div>`; }
@@ -263,6 +332,10 @@
   el('prevWeek').addEventListener('click',()=>cycle(els.week,1,()=>els.week.dispatchEvent(new Event('change'))));
   el('nextWeek').addEventListener('click',()=>cycle(els.week,-1,()=>els.week.dispatchEvent(new Event('change'))));
   el('refreshButton').addEventListener('click',loadData);
+  els.teamButton.addEventListener('click',openTeamModal);
+  els.teamModalClose.addEventListener('click',closeTeamModal);
+  els.teamModal.addEventListener('click',e=>{ if(e.target===els.teamModal) closeTeamModal(); });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape' && !els.teamModal.hidden) closeTeamModal(); });
 
   loadData();
   if (cfg.refreshMinutes > 0) setInterval(loadData, cfg.refreshMinutes * 60 * 1000);

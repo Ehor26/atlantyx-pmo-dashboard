@@ -18,6 +18,7 @@
         </div>
       </div>
       <div class="topbar-right">
+        <button class="ghost-button team-button" id="teamButton" type="button">Equipe ATLANTYX</button>
         <div class="updated-chip">
           <span class="updated-chip__label">Atualização</span>
           <strong id="updatedDate">—</strong>
@@ -28,7 +29,13 @@
 
     <section class="filters" aria-label="Filtros">
       <div class="filter-block filter-project">
-        <span class="filter-label">Projeto</span>
+        <div class="filter-heading-row">
+          <span class="filter-label">Projeto</span>
+          <span class="project-signal project-signal-neutral" id="projectSignal" title="🟢 Sem atraso · 🟡 Atraso sem impacto no término · 🔴 Atraso com impacto no término">
+            <span id="projectSignalDot">⚪</span>
+            <span id="projectSignalText">Status não informado</span>
+          </span>
+        </div>
         <div class="stepper-control">
           <button class="icon-button" id="prevProject" type="button" aria-label="Projeto anterior">←</button>
           <select id="projectSelect" aria-label="Selecionar projeto"></select>
@@ -63,26 +70,26 @@
         <div class="panel-content" id="doneList"></div>
       </section>
 
-      <section class="panel panel-schedule" data-section="Macros do cronograma">
+      <section class="panel panel-planned" data-section="O que será feito">
+        <div class="panel-header">
+          <div>
+            <div class="section-kicker">PRÓXIMOS PASSOS / ENTREGAS</div>
+            <h2>O que será feito</h2>
+          </div>
+          <span class="counter" id="countPlanned">0</span>
+        </div>
+        <div class="panel-content" id="plannedList"></div>
+      </section>
+
+      <section class="panel panel-schedule" data-section="Marcos do cronograma">
         <div class="panel-header">
           <div>
             <div class="section-kicker">% CONCLUÍDO + DATAS-CHAVE</div>
-            <h2>Macros do cronograma</h2>
+            <h2>Marcos do cronograma</h2>
           </div>
           <span class="counter" id="countSchedule">0</span>
         </div>
         <div class="panel-content" id="scheduleList"></div>
-      </section>
-
-      <section class="panel panel-deliveries" data-section="Entregas">
-        <div class="panel-header">
-          <div>
-            <div class="section-kicker">PRINCIPAIS OUTPUTS / ACEITE</div>
-            <h2>Entregas</h2>
-          </div>
-          <span class="counter" id="countDeliveries">0</span>
-        </div>
-        <div class="panel-content" id="deliveryList"></div>
       </section>
 
       <section class="panel panel-attention" data-section="Pontos de atenção">
@@ -101,6 +108,20 @@
       <span id="dataStatus">Carregando dados…</span>
       <span>ATLANTYX · Uso executivo</span>
     </footer>
+  </div>
+
+  <div class="modal-backdrop" id="teamModal" hidden>
+    <section class="team-modal" role="dialog" aria-modal="true" aria-labelledby="teamModalTitle">
+      <div class="team-modal__header">
+        <div>
+          <div class="section-kicker">EQUIPE DO PROJETO</div>
+          <h2 id="teamModalTitle">Equipe ATLANTYX</h2>
+          <div class="team-project-name" id="teamProjectName">—</div>
+        </div>
+        <button class="modal-close" id="teamModalClose" type="button" aria-label="Fechar">×</button>
+      </div>
+      <div class="team-list" id="teamList"></div>
+    </section>
   </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>

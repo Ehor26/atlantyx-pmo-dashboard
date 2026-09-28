@@ -113,3 +113,41 @@ body.compact .panel-header { padding-top: 16px; padding-bottom: 10px; }
   .panel { box-shadow:none; break-inside:avoid; }
   .footer { margin-top:6px; }
 }
+
+/* v3: sinalizador de projeto, equipe e pontos de atenção */
+.filter-heading-row { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.project-signal { display:inline-flex; align-items:center; gap:6px; max-width:70%; padding:4px 9px; border-radius:999px; font-size:10.5px; font-weight:850; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border:1px solid transparent; }
+.project-signal-green { background:#e1f6ec; color:#15744f; border-color:#c4ead8; }
+.project-signal-yellow { background:#fff3db; color:#8b5d00; border-color:#f0d797; }
+.project-signal-red { background:#fde9e9; color:#a53636; border-color:#efc5c5; }
+.project-signal-neutral { background:#eef3f6; color:#617681; border-color:#dce7ec; }
+.team-button { background:#fff; font-weight:750; }
+.panel-attention { border:2px solid rgba(196,68,68,.52); }
+.panel-attention::before { background:var(--red); height:4px; }
+.panel-attention .counter { background:#fde9e9; color:#a53636; }
+.modal-backdrop { position:fixed; inset:0; z-index:100; display:grid; place-items:center; padding:24px; background:rgba(3,31,43,.42); backdrop-filter:blur(3px); }
+.modal-backdrop[hidden] { display:none; }
+.team-modal { width:min(560px, 100%); max-height:min(72vh, 660px); overflow:auto; background:#fff; border:1px solid var(--line); border-radius:18px; box-shadow:0 24px 70px rgba(3,31,43,.24); }
+.team-modal__header { display:flex; justify-content:space-between; gap:18px; align-items:flex-start; padding:20px 22px 16px; border-bottom:1px solid #e8f0f4; }
+.team-modal__header h2 { margin:4px 0 0; color:var(--navy); font-size:22px; }
+.team-project-name { margin-top:5px; font-size:13px; color:var(--ink-soft); font-weight:700; }
+.modal-close { width:36px; height:36px; border:1px solid var(--line); border-radius:10px; background:#f8fbfc; color:var(--navy); font-size:24px; line-height:1; cursor:pointer; }
+.team-list { padding:10px 22px 22px; }
+.team-member { display:grid; grid-template-columns:38px minmax(0,1fr); gap:11px; align-items:center; padding:11px 0; border-bottom:1px solid #edf3f6; }
+.team-member:last-child { border-bottom:0; }
+.team-avatar { width:36px; height:36px; display:grid; place-items:center; border-radius:50%; background:#e8f7f5; color:#0d826e; font-size:12px; font-weight:900; }
+.team-member-name { color:var(--navy); font-weight:850; line-height:1.2; }
+.team-member-role { margin-top:3px; color:var(--ink-soft); font-size:12.5px; }
+.team-empty { padding:22px 0 4px; color:#78909a; line-height:1.5; text-align:center; }
+
+@media (max-width: 980px) {
+  .project-signal { max-width:58%; }
+  .topbar-right { flex-wrap:wrap; }
+}
+
+@media print {
+  .team-button, .modal-backdrop { display:none !important; }
+  .panel-attention { border-color:#d98c8c; }
+}
+
+body.modal-open { overflow:hidden; }
