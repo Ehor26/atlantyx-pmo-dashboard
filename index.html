@@ -29,13 +29,7 @@
 
     <section class="filters" aria-label="Filtros">
       <div class="filter-block filter-project">
-        <div class="filter-heading-row">
-          <span class="filter-label">Projeto</span>
-          <span class="project-signal project-signal-neutral" id="projectSignal" title="🟢 Sem atraso · 🟡 Atraso sem impacto no término · 🔴 Atraso com impacto no término">
-            <span id="projectSignalDot">⚪</span>
-            <span id="projectSignalText">Status não informado</span>
-          </span>
-        </div>
+        <span class="filter-label">Projeto</span>
         <div class="stepper-control">
           <button class="icon-button" id="prevProject" type="button" aria-label="Projeto anterior">←</button>
           <select id="projectSelect" aria-label="Selecionar projeto"></select>
@@ -52,9 +46,27 @@
         </div>
       </div>
 
-      <div class="meeting-summary">
-        <span class="meeting-summary__label">Leitura da semana</span>
-        <strong id="weekHeadline">—</strong>
+      <div class="meeting-summary project-health-summary">
+        <span class="meeting-summary__label">Status do projeto</span>
+        <div class="health-status-row">
+          <span class="project-signal project-signal-neutral" id="projectSignal" title="🟢 Sem atraso · 🟡 Atraso sem impacto no término · 🔴 Atraso com impacto no término">
+            <span id="projectSignalDot">⚪</span>
+            <span id="projectSignalText">Status não informado</span>
+          </span>
+          <span class="health-date" id="indicatorDate">—</span>
+        </div>
+        <div class="health-metrics">
+          <div class="health-metric">
+            <span>Concluído</span>
+            <strong id="indicatorActual">—</strong>
+            <div class="health-track"><div class="health-fill actual" id="indicatorActualBar"></div></div>
+          </div>
+          <div class="health-metric">
+            <span>Planejado</span>
+            <strong id="indicatorPlanned">—</strong>
+            <div class="health-track"><div class="health-fill planned" id="indicatorPlannedBar"></div></div>
+          </div>
+        </div>
       </div>
     </section>
 

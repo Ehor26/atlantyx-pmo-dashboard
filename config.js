@@ -6,6 +6,7 @@ window.ATLANTYX_CONFIG = {
   projectsGid: "1281331603",
   updatesGid: "1629390087",
   teamGid: "1533494228",
+  indicatorsGid: "1631009960",
   refreshMinutes: 5,
   locale: "pt-BR"
 };

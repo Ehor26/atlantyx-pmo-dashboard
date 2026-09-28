@@ -151,3 +151,21 @@ body.compact .panel-header { padding-top: 16px; padding-bottom: 10px; }
 }
 
 body.modal-open { overflow:hidden; }
+
+
+/* v4: resumo do Project no topo */
+.project-health-summary { justify-content: flex-start; gap: 8px; }
+.health-status-row { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:6px; }
+.health-date { color:#78909a; font-size:11.5px; font-weight:750; white-space:nowrap; }
+.health-metrics { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:2px; }
+.health-metric { min-width:0; }
+.health-metric > span { display:block; color:#6f8792; font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.055em; }
+.health-metric > strong { display:block; margin-top:2px; color:var(--navy); font-size:19px; line-height:1.1; }
+.health-track { height:5px; margin-top:6px; background:#e7eff3; border-radius:999px; overflow:hidden; }
+.health-fill { height:100%; width:0; border-radius:999px; transition:width .35s ease; }
+.health-fill.actual { background:linear-gradient(90deg,var(--teal),var(--cyan)); }
+.health-fill.planned { background:linear-gradient(90deg,#91a9b4,var(--blue)); }
+.filter-project .filter-heading-row { display:none; }
+@media (max-width: 980px) {
+  .health-metrics { grid-template-columns:1fr 1fr; }
+}

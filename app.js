@@ -1,15 +1,16 @@
 (() => {
   const cfg = window.ATLANTYX_CONFIG;
-  const state = { projects: [], updates: [], teams: [], selectedProjectId: null, selectedWeekKey: null, demo: false };
+  const state = { projects: [], updates: [], teams: [], indicators: [], selectedProjectId: null, selectedWeekKey: null, demo: false };
 
   const el = id => document.getElementById(id);
   const els = {
-    project: el('projectSelect'), week: el('weekSelect'), updated: el('updatedDate'), weekHeadline: el('weekHeadline'),
+    project: el('projectSelect'), week: el('weekSelect'), updated: el('updatedDate'),
     status: el('dataStatus'), toast: el('toast'), done: el('doneList'), planned: el('plannedList'),
     schedule: el('scheduleList'), attention: el('attentionList'),
     countDone: el('countDone'), countPlanned: el('countPlanned'), countSchedule: el('countSchedule'), countAttention: el('countAttention'),
     signal: el('projectSignal'), signalDot: el('projectSignalDot'), signalText: el('projectSignalText'),
-    teamButton: el('teamButton'), teamModal: el('teamModal'), teamModalClose: el('teamModalClose'), teamProjectName: el('teamProjectName'), teamList: el('teamList')
+    teamButton: el('teamButton'), teamModal: el('teamModal'), teamModalClose: el('teamModalClose'), teamProjectName: el('teamProjectName'), teamList: el('teamList'),
+    indicatorDate: el('indicatorDate'), indicatorActual: el('indicatorActual'), indicatorPlanned: el('indicatorPlanned'), indicatorActualBar: el('indicatorActualBar'), indicatorPlannedBar: el('indicatorPlannedBar')
   };
 
   const demoProjects = [
@@ -19,6 +20,10 @@
   const demoTeams = [
     { id:'1', name:'Ana Souza', role:'PM', project:'Projeto Exemplo A', projectId:'PRJ001' },
     { id:'2', name:'Bruno Lima', role:'Arquiteto', project:'Projeto Exemplo A', projectId:'PRJ001' }
+  ];
+  const demoIndicators = [
+    { project:'Projeto Exemplo A', projectId:'PRJ001', date:'2026-09-24', actual:75, planned:82 },
+    { project:'Projeto Exemplo B', projectId:'PRJ002', date:'2026-09-24', actual:48, planned:55 }
   ];
   const demoUpdates = [
     { project:'Projeto Exemplo A', projectId:'PRJ001', date:'2026-09-24', pillar:'O que foi feito', description:'Integração concluída e fluxo principal homologado.', status:'Concluído', start:'', end:'', percent:'', note:'' },
@@ -146,14 +151,16 @@
     const forceDemo = new URLSearchParams(location.search).get('demo') === '1';
     try {
       if (forceDemo) throw new Error('Modo demonstração solicitado');
-      const [projectRows, updateRows, teamRows] = await Promise.all([
+      const [projectRows, updateRows, teamRows, indicatorRows] = await Promise.all([
         fetchPublishedCsv(cfg.projectsGid),
         fetchPublishedCsv(cfg.updatesGid),
-        fetchPublishedCsv(cfg.teamGid)
+        fetchPublishedCsv(cfg.teamGid),
+        fetchPublishedCsv(cfg.indicatorsGid)
       ]);
       const rawProjects = csvRowsToObjects(projectRows);
       const rawUpdates = csvRowsToObjects(updateRows);
       const rawTeams = csvRowsToObjects(teamRows);
+      const rawIndicators = csvRowsToObjects(indicatorRows);
 
       state.projects = rawProjects.map(r => ({
         id: String(normalizeHeader(r,['projeto_id','Projeto ID']) || '').trim(),
@@ -184,11 +191,19 @@
         projectId: String(normalizeHeader(r,['projeto_id','Projeto ID','projeto id']) || '').trim()
       })).filter(x => x.name && (x.projectId || x.project));
 
+      state.indicators = rawIndicators.map(r => ({
+        project: String(normalizeHeader(r,['Projeto','projeto']) || '').trim(),
+        projectId: String(normalizeHeader(r,['Projeto ID','projeto_id']) || '').trim(),
+        date: parseGvizDate(normalizeHeader(r,['Data referência','Data referencia','data_referencia','Data'])),
+        actual: parsePercent(normalizeHeader(r,['% concluído','% concluido','percentual_concluido','Concluído','Concluido'])),
+        planned: parsePercent(normalizeHeader(r,['% planejado','percentual_planejado','Planejado']))
+      })).filter(x => x.projectId && x.date);
+
       if (!state.projects.length) throw new Error('Nenhum projeto encontrado na aba PROJETOS');
       state.demo = false;
       els.status.textContent = 'Fonte: Google Sheets publicado · atualização automática';
     } catch (err) {
-      state.projects = demoProjects; state.updates = demoUpdates; state.teams = demoTeams; state.demo = true;
+      state.projects = demoProjects; state.updates = demoUpdates; state.teams = demoTeams; state.indicators = demoIndicators; state.demo = true;
       els.status.textContent = 'Modo demonstração · não foi possível ler a publicação do Google Sheets';
       showToast('Não foi possível ler a publicação do Google Sheets. Confira se “Publicar na Web” continua ativo e tente Atualizar dados.');
       console.warn(err);
@@ -228,7 +243,6 @@
     const week = weeksForProject(state.selectedProjectId).find(w=>w.key===state.selectedWeekKey);
     const latestDate = rows.map(r=>r.date).sort().at(-1) || '';
     els.updated.textContent = latestDate ? formatDate(latestDate) : '—';
-    els.weekHeadline.textContent = week?.label || 'Sem atualização para este projeto';
 
     const done = rows.filter(r=>normalize(r.pillar)==='o que foi feito');
     const planned = rows.filter(r=>['o que sera feito','entregas'].includes(normalize(r.pillar)));
@@ -236,6 +250,7 @@
     const attention = rows.filter(r=>normalize(r.pillar)==='pontos de atencao');
     els.countDone.textContent=done.length; els.countPlanned.textContent=planned.length; els.countSchedule.textContent=schedule.length; els.countAttention.textContent=attention.length;
     renderProjectMeta();
+    renderIndicatorSummary(week);
 
     els.done.innerHTML = done.length ? done.map((r,i)=>`
       <div class="done-item">
@@ -269,6 +284,26 @@
 
     const total = rows.length;
     document.body.classList.toggle('compact', total > 12 || Math.max(done.length,planned.length,schedule.length,attention.length) > 5);
+  }
+
+
+  function indicatorForSelectedWeek() {
+    if (!state.selectedProjectId || !state.selectedWeekKey) return null;
+    return state.indicators
+      .filter(i => i.projectId === state.selectedProjectId && weekInfo(i.date)?.key === state.selectedWeekKey)
+      .sort((a,b) => a.date.localeCompare(b.date))
+      .at(-1) || null;
+  }
+
+  function renderIndicatorSummary(week) {
+    const snapshot = indicatorForSelectedWeek();
+    const actual = snapshot?.actual;
+    const planned = snapshot?.planned;
+    els.indicatorDate.textContent = snapshot?.date ? `Ref. ${shortDate(snapshot.date)}` : (week ? 'Sem dado Project' : '—');
+    els.indicatorActual.textContent = actual == null ? '—' : `${Math.round(actual)}%`;
+    els.indicatorPlanned.textContent = planned == null ? '—' : `${Math.round(planned)}%`;
+    els.indicatorActualBar.style.width = `${actual ?? 0}%`;
+    els.indicatorPlannedBar.style.width = `${planned ?? 0}%`;
   }
 
 
