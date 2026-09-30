@@ -1,10 +1,10 @@
 (() => {
   const cfg = window.ATLANTYX_CONFIG;
-  const state = { projects: [], updates: [], teams: [], indicators: [], selectedProjectId: null, selectedWeekKey: null, demo: false };
+  const state = { projects: [], updates: [], teams: [], indicators: [], selectedClient: null, selectedProjectId: null, selectedWeekKey: null, demo: false };
 
   const el = id => document.getElementById(id);
   const els = {
-    project: el('projectSelect'), week: el('weekSelect'), updated: el('updatedDate'),
+    client: el('clientSelect'), project: el('projectSelect'), week: el('weekSelect'), updated: el('updatedDate'), pageTitle: el('pageTitle'),
     status: el('dataStatus'), toast: el('toast'), done: el('doneList'), planned: el('plannedList'),
     schedule: el('scheduleList'), attention: el('attentionList'),
     countDone: el('countDone'), countPlanned: el('countPlanned'), countSchedule: el('countSchedule'), countAttention: el('countAttention'),
@@ -14,8 +14,8 @@
   };
 
   const demoProjects = [
-    { id: 'PRJ001', name: 'Projeto Exemplo A', active: true, order: 1, signal: 'Sem atraso' },
-    { id: 'PRJ002', name: 'Projeto Exemplo B', active: true, order: 2, signal: 'Atraso sem impacto no término' }
+    { id: 'PRJ001', name: 'Projeto Exemplo A', active: true, order: 1, signal: 'Sem atraso', client: 'Cliente A' },
+    { id: 'PRJ002', name: 'Projeto Exemplo B', active: true, order: 2, signal: 'Atraso sem impacto no término', client: 'Cliente B' }
   ];
   const demoTeams = [
     { id:'1', name:'Ana Souza', role:'PM', project:'Projeto Exemplo A', projectId:'PRJ001' },
@@ -32,7 +32,7 @@
     { project:'Projeto Exemplo A', projectId:'PRJ001', date:'2026-09-24', pillar:'O que será feito', description:'Documentação operacional revisada.', status:'Em curso', start:'', end:'2026-09-25', percent:'', note:'' },
     { project:'Projeto Exemplo A', projectId:'PRJ001', date:'2026-09-24', pillar:'Marcos do cronograma', description:'Desenvolvimento', status:'Em curso', start:'2026-09-01', end:'2026-09-30', percent:'75%', note:'' },
     { project:'Projeto Exemplo A', projectId:'PRJ001', date:'2026-09-24', pillar:'Marcos do cronograma', description:'Homologação', status:'A iniciar', start:'2026-10-01', end:'2026-10-09', percent:'10%', note:'' },
-    { project:'Projeto Exemplo A', projectId:'PRJ001', date:'2026-09-24', pillar:'Pontos de atenção', description:'Liberação do ambiente depende de terceiro e pode impactar a homologação.', status:'Dependência', start:'', end:'2026-09-26', percent:'', note:'Escalonar se não houver liberação.' },
+    { project:'Projeto Exemplo A', projectId:'PRJ001', date:'2026-09-24', pillar:'Pontos de atenção', description:'Liberação do ambiente depende de terceiro e pode impactar a homologação.', status:'Dependência', start:'', end:'2026-09-26', percent:'', note:'', action:'Escalonar com Segurança de Dados se o ambiente não for liberado até o próximo checkpoint.' },
     { project:'Projeto Exemplo A', projectId:'PRJ001', date:'2026-09-17', pillar:'O que foi feito', description:'Arquitetura técnica aprovada.', status:'Concluído', start:'', end:'', percent:'', note:'' },
     { project:'Projeto Exemplo B', projectId:'PRJ002', date:'2026-09-24', pillar:'O que foi feito', description:'Backlog priorizado para a próxima etapa.', status:'Concluído', start:'', end:'', percent:'', note:'' },
     { project:'Projeto Exemplo B', projectId:'PRJ002', date:'2026-09-24', pillar:'Pontos de atenção', description:'Decisão sobre escopo adicional necessária antes do próximo marco.', status:'Decisão', start:'', end:'2026-09-25', percent:'', note:'' }
@@ -167,7 +167,8 @@
         name: String(normalizeHeader(r,['projeto','Projeto']) || '').trim(),
         active: !['false','falso','0','nao','não'].includes(normalize(normalizeHeader(r,['ativo','Ativo']))),
         order: Number(normalizeHeader(r,['ordem','Ordem'])) || 999,
-        signal: String(normalizeHeader(r,['sinalizador','Sinalizador','status_projeto','Status do projeto']) || '').trim()
+        signal: String(normalizeHeader(r,['sinalizador','Sinalizador','status_projeto','Status do projeto']) || '').trim(),
+        client: String(normalizeHeader(r,['Cliente','cliente']) || '').trim()
       })).filter(p => p.id && p.name).sort((a,b)=>a.order-b.order || a.name.localeCompare(b.name));
 
       state.updates = rawUpdates.map(r => ({
@@ -180,7 +181,8 @@
         start: parseGvizDate(normalizeHeader(r,['Data início','data_inicio'])),
         end: parseGvizDate(normalizeHeader(r,['Data fim','data_fim'])),
         percent: normalizeHeader(r,['%','percentual']),
-        note: String(normalizeHeader(r,['Observação / Evidência','evidencia_observacao']) || '').trim()
+        note: String(normalizeHeader(r,['Observação / Evidência','evidencia_observacao']) || '').trim(),
+        action: String(normalizeHeader(r,['Ação','Acao','acao','AÇÕES','Acoes','acoes']) || '').trim()
       })).filter(x => x.projectId && x.date && x.pillar && x.description);
 
       state.teams = rawTeams.map(r => ({
@@ -211,13 +213,53 @@
     hydrateSelections(); render();
   }
 
-  function hydrateSelections() {
-    const active = state.projects.filter(p => p.active !== false);
-    const previous = state.selectedProjectId;
-    els.project.innerHTML = active.map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('');
-    state.selectedProjectId = active.some(p=>p.id===previous) ? previous : (active[0]?.id || null);
+  function activeProjects() {
+    return state.projects.filter(p => p.active !== false);
+  }
+
+  function clientOptions() {
+    return [...new Set(activeProjects().map(p => p.client).filter(Boolean))]
+      .sort((a,b) => a.localeCompare(b, 'pt-BR'));
+  }
+
+  function projectsForClient(client) {
+    const active = activeProjects();
+    if (!client || client === '__ALL__') return active;
+    return active.filter(p => normalize(p.client) === normalize(client));
+  }
+
+  function fillClientOptions() {
+    const clients = clientOptions();
+    els.client.innerHTML = [
+      '<option value="__ALL__">Todos</option>',
+      ...clients.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`)
+    ].join('');
+  }
+
+  function updateProjectOptions({ resetWeek = false } = {}) {
+    const visible = projectsForClient(state.selectedClient);
+    const previousProject = state.selectedProjectId;
+    els.project.innerHTML = visible.map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('');
+    state.selectedProjectId = visible.some(p => p.id === previousProject) ? previousProject : (visible[0]?.id || null);
     els.project.value = state.selectedProjectId || '';
+    if (resetWeek) state.selectedWeekKey = null;
     updateWeekOptions();
+  }
+
+  function hydrateSelections() {
+    const active = activeProjects();
+    const previousProject = state.selectedProjectId;
+    const previousClient = state.selectedClient;
+    fillClientOptions();
+    state.selectedProjectId = active.some(p=>p.id===previousProject) ? previousProject : (active[0]?.id || null);
+    const selectedProject = active.find(p => p.id === state.selectedProjectId) || null;
+    const clients = clientOptions();
+    if (previousClient === '__ALL__' || clients.some(c => c === previousClient)) state.selectedClient = previousClient;
+    else state.selectedClient = selectedProject?.client || '__ALL__';
+    if (!state.selectedClient) state.selectedClient = selectedProject?.client || '__ALL__';
+    if (!previousClient && selectedProject?.client) state.selectedClient = selectedProject.client;
+    els.client.value = state.selectedClient;
+    updateProjectOptions();
   }
 
   function weeksForProject(projectId) {
@@ -236,6 +278,15 @@
 
   function selectedRows() {
     return state.updates.filter(u => u.projectId===state.selectedProjectId && weekInfo(u.date)?.key===state.selectedWeekKey);
+  }
+
+  function renderActionTooltip(action) {
+    if (!action) return '<span class="action-empty" aria-label="Ação não informada">—</span>';
+    const safe = escapeHtml(action);
+    return `<span class="action-info" tabindex="0" aria-label="Ação: ${safe}">
+      <span class="action-info__icon" aria-hidden="true">ⓘ</span>
+      <span class="action-tooltip" role="tooltip">${safe}</span>
+    </span>`;
   }
 
   function render() {
@@ -279,7 +330,7 @@
       <div class="attention-item">
         <div class="attention-type">${escapeHtml(r.status || 'Atenção')}</div>
         <div><div class="item-title">${escapeHtml(r.description)}</div>${r.note?`<div class="item-description">${escapeHtml(r.note)}</div>`:''}</div>
-        <div class="attention-date">${r.end?shortDate(r.end):'—'}</div>
+        <div class="attention-action">${renderActionTooltip(r.action)}</div>
       </div>`).join('') : empty('Nenhum ponto de atenção registrado nesta semana.');
 
     const total = rows.length;
@@ -329,6 +380,9 @@
     els.signal.className = `project-signal ${info.cls}`;
     els.signalDot.textContent = info.emoji;
     els.signalText.textContent = info.text;
+    const heading = project ? `Resumo executivo semanal - ${project.name}` : 'Resumo executivo semanal';
+    els.pageTitle.textContent = heading;
+    document.title = project ? `ATLANTYX · ${heading}` : 'ATLANTYX · Resumo Executivo Semanal';
     els.teamButton.title = project ? `Ver equipe ATLANTYX de ${project.name}` : 'Ver equipe ATLANTYX';
   }
 
@@ -378,7 +432,27 @@
     select.selectedIndex=(select.selectedIndex+delta+n)%n; onChange();
   }
 
-  els.project.addEventListener('change',()=>{ state.selectedProjectId=els.project.value; state.selectedWeekKey=null; updateWeekOptions(); render(); });
+  els.client.addEventListener('change',()=>{
+    state.selectedClient = els.client.value;
+    state.selectedWeekKey = null;
+    updateProjectOptions({ resetWeek: true });
+    render();
+  });
+
+  els.project.addEventListener('change',()=>{
+    state.selectedProjectId = els.project.value;
+    const project = currentProject();
+    if (project?.client && normalize(state.selectedClient) !== normalize(project.client)) {
+      state.selectedClient = project.client;
+      els.client.value = project.client;
+      state.selectedWeekKey = null;
+      updateProjectOptions({ resetWeek: true });
+    } else {
+      state.selectedWeekKey = null;
+      updateWeekOptions();
+    }
+    render();
+  });
   els.week.addEventListener('change',()=>{ state.selectedWeekKey=els.week.value; render(); });
   el('prevProject').addEventListener('click',()=>cycle(els.project,-1,()=>els.project.dispatchEvent(new Event('change'))));
   el('nextProject').addEventListener('click',()=>cycle(els.project,1,()=>els.project.dispatchEvent(new Event('change'))));

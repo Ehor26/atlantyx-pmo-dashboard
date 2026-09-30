@@ -14,7 +14,7 @@
         <img class="brand-logo" src="assets/atlantyx_logo_navy.png" alt="ATLANTYX" />
         <div>
           <div class="eyebrow">PMO · REUNIÃO COM CTO</div>
-          <h1>Resumo executivo semanal</h1>
+          <h1 id="pageTitle">Resumo executivo semanal</h1>
         </div>
       </div>
       <div class="topbar-right">
@@ -29,11 +29,19 @@
 
     <section class="filters" aria-label="Filtros">
       <div class="filter-block filter-project">
-        <span class="filter-label">Projeto</span>
-        <div class="stepper-control">
-          <button class="icon-button" id="prevProject" type="button" aria-label="Projeto anterior">←</button>
-          <select id="projectSelect" aria-label="Selecionar projeto"></select>
-          <button class="icon-button" id="nextProject" type="button" aria-label="Próximo projeto">→</button>
+        <div class="linked-filters">
+          <label class="linked-filter linked-filter-client">
+            <span class="filter-label">Cliente</span>
+            <select id="clientSelect" aria-label="Selecionar cliente"></select>
+          </label>
+          <div class="linked-filter linked-filter-project">
+            <span class="filter-label">Projeto</span>
+            <div class="stepper-control project-stepper">
+              <button class="icon-button" id="prevProject" type="button" aria-label="Projeto anterior">←</button>
+              <select id="projectSelect" aria-label="Selecionar projeto"></select>
+              <button class="icon-button" id="nextProject" type="button" aria-label="Próximo projeto">→</button>
+            </div>
+          </div>
         </div>
       </div>
 
