@@ -320,8 +320,11 @@
     els.schedule.innerHTML = schedule.length ? schedule.map(r=>{
       const pct=parsePercent(r.percent); return `
       <div class="schedule-item">
-        <div class="schedule-head"><div class="item-title">${escapeHtml(r.description)}</div><div class="schedule-percent">${pct==null?'—':Math.round(pct)+'%'}</div></div>
-        <div class="schedule-dates">${r.start?shortDate(r.start):'—'} → ${r.end?shortDate(r.end):'—'} ${r.status?` · ${escapeHtml(r.status)}`:''}</div>
+        <div class="schedule-head">
+          <div class="item-title">${escapeHtml(r.description)}</div>
+          <div class="schedule-end-date">${r.end?shortDate(r.end):'—'}</div>
+        </div>
+        <div class="schedule-meta">${pct==null?'—':Math.round(pct)+'%'}${r.status?` · ${escapeHtml(r.status)}`:''}</div>
         <div class="progress-track"><div class="progress-fill" style="width:${pct ?? 0}%"></div></div>
         ${r.note?`<div class="item-description">${escapeHtml(r.note)}</div>`:''}
       </div>`}).join('') : empty('Nenhum marco de cronograma registrado nesta semana.');
