@@ -193,13 +193,14 @@
         projectId: String(normalizeHeader(r,['projeto_id','Projeto ID','projeto id']) || '').trim()
       })).filter(x => x.name && (x.projectId || x.project));
 
-      state.indicators = rawIndicators.map(r => ({
+      state.indicators = rawIndicators.map((r, index) => ({
         project: String(normalizeHeader(r,['Projeto','projeto']) || '').trim(),
         projectId: String(normalizeHeader(r,['Projeto ID','projeto_id']) || '').trim(),
         date: parseGvizDate(normalizeHeader(r,['Data referência','Data referencia','data_referencia','Data'])),
         actual: parsePercent(normalizeHeader(r,['% concluído','% concluido','percentual_concluido','Concluído','Concluido'])),
         planned: parsePercent(normalizeHeader(r,['% planejado','percentual_planejado','Planejado'])),
-        signal: String(normalizeHeader(r,['sinalizador','Sinalizador','status_projeto','Status do projeto']) || '').trim()
+        signal: String(normalizeHeader(r,['sinalizador','Sinalizador','status_projeto','Status do projeto']) || '').trim(),
+        sourceRow: index + 2
       })).filter(x => x.projectId && x.date);
 
       if (!state.projects.length) throw new Error('Nenhum projeto encontrado na aba PROJETOS');
@@ -346,7 +347,7 @@
     if (!state.selectedProjectId || !state.selectedWeekKey) return null;
     return state.indicators
       .filter(i => i.projectId === state.selectedProjectId && weekInfo(i.date)?.key === state.selectedWeekKey)
-      .sort((a,b) => a.date.localeCompare(b.date))
+      .sort((a,b) => a.date.localeCompare(b.date) || (a.sourceRow || 0) - (b.sourceRow || 0))
       .at(-1) || null;
   }
 
