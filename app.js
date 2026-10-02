@@ -22,8 +22,8 @@
     { id:'2', name:'Bruno Lima', role:'Arquiteto', project:'Projeto Exemplo A', projectId:'PRJ001' }
   ];
   const demoIndicators = [
-    { project:'Projeto Exemplo A', projectId:'PRJ001', date:'2026-09-24', actual:75, planned:82 },
-    { project:'Projeto Exemplo B', projectId:'PRJ002', date:'2026-09-24', actual:48, planned:55 }
+    { project:'Projeto Exemplo A', projectId:'PRJ001', date:'2026-09-24', actual:75, planned:82, signal:'Sem atraso' },
+    { project:'Projeto Exemplo B', projectId:'PRJ002', date:'2026-09-24', actual:48, planned:55, signal:'Atraso sem impacto no término' }
   ];
   const demoUpdates = [
     { project:'Projeto Exemplo A', projectId:'PRJ001', date:'2026-09-24', pillar:'O que foi feito', description:'Integração concluída e fluxo principal homologado.', status:'Concluído', start:'', end:'', percent:'', note:'' },
@@ -198,7 +198,8 @@
         projectId: String(normalizeHeader(r,['Projeto ID','projeto_id']) || '').trim(),
         date: parseGvizDate(normalizeHeader(r,['Data referência','Data referencia','data_referencia','Data'])),
         actual: parsePercent(normalizeHeader(r,['% concluído','% concluido','percentual_concluido','Concluído','Concluido'])),
-        planned: parsePercent(normalizeHeader(r,['% planejado','percentual_planejado','Planejado']))
+        planned: parsePercent(normalizeHeader(r,['% planejado','percentual_planejado','Planejado'])),
+        signal: String(normalizeHeader(r,['sinalizador','Sinalizador','status_projeto','Status do projeto']) || '').trim()
       })).filter(x => x.projectId && x.date);
 
       if (!state.projects.length) throw new Error('Nenhum projeto encontrado na aba PROJETOS');
@@ -353,11 +354,17 @@
     const snapshot = indicatorForSelectedWeek();
     const actual = snapshot?.actual;
     const planned = snapshot?.planned;
+    const info = signalInfo(snapshot?.signal || '');
+
     els.indicatorDate.textContent = snapshot?.date ? `Ref. ${shortDate(snapshot.date)}` : (week ? 'Sem dado Project' : '—');
     els.indicatorActual.textContent = actual == null ? '—' : `${Math.round(actual)}%`;
     els.indicatorPlanned.textContent = planned == null ? '—' : `${Math.round(planned)}%`;
     els.indicatorActualBar.style.width = `${actual ?? 0}%`;
     els.indicatorPlannedBar.style.width = `${planned ?? 0}%`;
+
+    els.signal.className = `project-signal ${info.cls}`;
+    els.signalDot.textContent = info.emoji;
+    els.signalText.textContent = info.text;
   }
 
 
@@ -379,10 +386,6 @@
 
   function renderProjectMeta() {
     const project = currentProject();
-    const info = signalInfo(project?.signal || '');
-    els.signal.className = `project-signal ${info.cls}`;
-    els.signalDot.textContent = info.emoji;
-    els.signalText.textContent = info.text;
     const heading = project ? `Resumo executivo semanal - ${project.name}` : 'Resumo executivo semanal';
     els.pageTitle.textContent = heading;
     document.title = project ? `ATLANTYX · ${heading}` : 'ATLANTYX · Resumo Executivo Semanal';
